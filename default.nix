@@ -44,31 +44,32 @@ let
 
   stdenv_pkg = nixpkgs_derivations.stdenv;
 
-  # Is the platform target a Darwin derivative
+  # Is the current platform a Darwin derivative?
   is_darwin = stdenv_pkg.hostPlatform.isDarwin;
 
   # Binaries
-  bash_path      = toString nixpkgs_derivations.bash;
-  binutils_path  = toString (if is_darwin then
+  bash_path     = toString nixpkgs_derivations.bash;
+  binutils_path = toString (if is_darwin then
                               nixpkgs_derivations.darwin.cctools
                             else
                               nixpkgs_derivations.binutils);
-  bison_path     = toString nixpkgs_derivations.bison;
+
+      bison_path = toString nixpkgs_derivations.bison;
   coreutils_path = toString nixpkgs_derivations.coreutils;
   diffutils_path = toString nixpkgs_derivations.diffutils;
-  flex_path      = toString nixpkgs_derivations.flex;
-  gawk_path      = toString nixpkgs_derivations.gawk;
-  gcc_path       = toString nixpkgs_derivations.gcc;
-  gnugrep_path   = toString nixpkgs_derivations.gnugrep;
-  gnumake_path   = toString nixpkgs_derivations.gnumake;
-  gnused_path    = toString nixpkgs_derivations.gnused;
-  perl_path      = toString nixpkgs_derivations.perl;
+       flex_path = toString nixpkgs_derivations.flex;
+       gawk_path = toString nixpkgs_derivations.gawk;
+        gcc_path = toString nixpkgs_derivations.gcc;
+    gnugrep_path = toString nixpkgs_derivations.gnugrep;
+    gnumake_path = toString nixpkgs_derivations.gnumake;
+     gnused_path = toString nixpkgs_derivations.gnused;
+       perl_path = toString nixpkgs_derivations.perl;
 
   # Libraries
   readline_out_path = toString nixpkgs_derivations.readline.out;
   readline_dev_path = toString nixpkgs_derivations.readline.dev;
-  zlib_out_path     = toString nixpkgs_derivations.zlib.out;
-  zlib_dev_path     = toString nixpkgs_derivations.zlib.dev;
+      zlib_out_path = toString nixpkgs_derivations.zlib.out;
+      zlib_dev_path = toString nixpkgs_derivations.zlib.dev;
 
   # Dev dependencies; for when using interactively, say, in nix-shell
   which_path = toString nixpkgs_derivations.which;
@@ -85,93 +86,9 @@ let
   source_nix = readFile ./default.nix; 
   source_nix_in_store = toFile "default.nix" source_nix;
 
-  # The driver script
-  builder = toFile "builder.sh" ''
-    #!/usr/bin/env bash
-
-    # Exit shell on error
-    set -e
-
-    # Read the optional environment variables, before we prohibit access of
-    # undefined variables.
-    #
-    # If we intend to inherit any of the environment variables, this is the
-    # place to inherit them with a new name. Using a name different than the
-    # original is desirable, since we want to catch any of the packages that
-    # may depend on the values of such variables.
-    #
-    # For example:
-    # in_nix_shell=$IN_NIX_SHELL
-
-    # Throw error on undefined variables
-    set -u
-
-    _log_file="$out/builder.log"
-    function log_file() { echo "$_log_file";}
-    function _log()
-    {
-       local log_type="$1";
-       shift;
-       echo "$(date) $log_type: $@" | tee -a "$_log_file";
-    }
-
-    function info() { _log INFO  "$@";             }
-    function warn() { _log WARN  "$@" >&2;         } # Emit message to stderr
-    function error(){ _log ERROR "$@" >&2; exit 1; } # ditto, then exit.
-
-    #### Emit enough info for later troubleshooting ####
-
-    # Change PATH enough to use `mkdir`, and a few other commands, necessary for
-    # logging.
-    #
-    # Note that we _don't_ use the $PATH passed to us in the environment.
-    export PATH="$coreutils_path/bin"
-    mkdir "$out"
-
-    info "uname -a: $(uname -a)"
-    info Nix builtins.currentSystem: ${currentSystem}
-    info Nix CLI version is ${nixVersion}.
-    info Nix language version is ${toString langVersion}.
-    info Source Nix file is at ${source_nix_in_store}.
-    info "OS {user; groups}: {$(whoami); $(groups)}"
-    info "Exported and unexported shell variables: $(printf '\n'; declare -p)"
-
-    # Record the checksum of impure files that may be used by Postgres
-    info Checksums of some of the files from outside Nix Store:
-    info $(sha256sum /bin/sh) # Used by many scripts, and pg_ctl, in particular.
-
-    rc=0
-    touch "$FARM_ROOT/touched_from_Nix_builder.txt" || rc=$?
-    if [[ $rc -ne 0 ]]; then
-      error "Could not touch file in Farm Root."\
-        "You might need to change the Farm Root be of group 'nixbld', and its permissions to be group-writable."
-    fi
-
-    #### Prepare to build Postgres ####
-
-    # Place binaries in $PATH.
-    #
-    # Note that we _don't_ use the $PATH passed to us in the environment.
-    export PATH="$bash_path/bin:$binutils_path/bin:$bison_path/bin:$coreutils_path/bin:$diffutils_path/bin:$flex_path/bin/:$gawk_path/bin:$gcc_path/bin:$gnugrep_path/bin:$gnumake_path/bin:$gnused_path/bin:$perl_path/bin"
-
-    # Dev dependencies; necessary only when, say, in interactive nix-shell
-    # environment.
-    export PATH="$PATH:$less_path/bin:$which_path/bin"
-
-    # Set flags to help find libraries and their header files.
-    #
-    # Note that we _don't_ use the corresponding values, if any, passed to us
-    # in the environment.
-    export LDFLAGS=" -L$readline_out_path/lib     -L$zlib_out_path/lib"
-    export CFLAGS="  -I$readline_dev_path/include -I$zlib_dev_path/include"
-    export CPPFLAGS="-I$readline_dev_path/include -I$zlib_dev_path/include"
-
-    cd "$PG_MIRROR"
-
-    ./configure --config-cache --prefix=$(pwd)/db/
-    make install
-    make check
-  '';
+  # Save the driver script in Nix store; for aid in troubleshooting.
+  builder_sh = readFile ./builder.sh;
+  builder_sh_in_store = toFile "builder.sh" builder_sh;
 
   # Check that x is an absolute path.
   #
@@ -215,6 +132,12 @@ in
       less_path
       which_path;
 
+    inherit
+      currentSystem
+      nixVersion
+      langVersion
+      source_nix_in_store;
+
     FARM_ROOT = config.FARM_ROOT;
     PG_MIRROR = config.PG_MIRROR;
 
@@ -225,6 +148,6 @@ in
                             # systems that Nix supports.
     builder = "${bash_path}/bin/bash";
 
-    args = [ builder ];
+    args = [ builder_sh_in_store ];
   }
 
