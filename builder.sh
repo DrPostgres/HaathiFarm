@@ -23,7 +23,7 @@ function _log()
 {
    local log_type="$1";
    shift;
-   echo "$(date) $log_type: $@" | tee -a "$_log_file";
+   echo "$(date --iso-8601=seconds) $log_type: $@" | tee -a "$_log_file";
 }
 
 function info() { _log INFO  "$@";             }
