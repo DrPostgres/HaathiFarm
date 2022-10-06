@@ -98,6 +98,7 @@ let
   is_absolute_path = x:
     isPath (/. + x) && (substring 0 1 x) == "/";
 
+  nix_env_details = "currentSystem:${currentSystem}, nixVersion:${nixVersion}, langVersion:${toString langVersion}";
 in
 
   assert is_absolute_path config.FARM_ROOT;
@@ -133,9 +134,7 @@ in
       which_path;
 
     inherit
-      currentSystem
-      nixVersion
-      langVersion
+      nix_env_details
       source_nix_in_store;
 
     FARM_ROOT = config.FARM_ROOT;

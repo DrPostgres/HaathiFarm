@@ -40,16 +40,15 @@ export PATH="$coreutils_path/bin"
 mkdir "$out"
 
 info "uname -a: $(uname -a)"
-info Nix builtins.currentSystem: ${currentSystem}
-info Nix CLI version is ${nixVersion}.
-info Nix language version is ${langVersion}.
+info Nix env details: $nix_env_details.
 info Source Nix file is at ${source_nix_in_store}.
 info "OS {user; groups}: {$(whoami); $(groups)}"
 info "Exported and unexported shell variables: $(printf '\n'; declare -p)"
 
 # Record the checksum of impure files that may be used by Postgres
-info Checksums of some of the files from outside Nix Store:
-info $(sha256sum /bin/sh) # Used by many scripts, and pg_ctl, in particular.
+info Checksums of some of the files from outside Nix Store that might get used:
+info Impure file $(sha256sum /bin/sh) # Used by many scripts, and pg_ctl, in particular.
+info Impure file $(sha256sum /usr/bin/env)
 
 rc=0
 touch "$FARM_ROOT/touched_from_Nix_builder.txt" || rc=$?
